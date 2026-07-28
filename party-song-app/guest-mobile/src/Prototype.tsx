@@ -45,8 +45,11 @@ export default function Prototype() {
   const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState("");
   const [isDedication, setIsDedication] = useState(true);
-  const [recipient, setRecipient] = useState("Martina");
-  const [sender, setSender] = useState("Antonio");
+  const [recipient, setRecipient] = useState("");
+  const [sender, setSender] = useState("");
+  const [dedicationMessage, setDedicationMessage] = useState("");
+  const [isSending, setIsSending] = useState(false);
+  const [sendError, setSendError] = useState("");
   const [sent, setSent] = useState(false);
 
   const normalizedQuery = query.trim();
@@ -108,12 +111,64 @@ export default function Prototype() {
   const selectedSong =
     allKnownSongs.find((song) => song.id === selectedId) ?? featuredSongs[0];
   const canSend =
-    Boolean(selectedSong) && (!isDedication || recipient.trim().length > 0);
+    Boolean(selectedSong) &&
+    !isSending &&
+    (!isDedication || recipient.trim().length > 0);
 
-  const sendRequest = () => {
+  const sendRequest = async () => {
     if (!canSend) return;
-    setSent(true);
-    window.setTimeout(() => setSent(false), 3200);
+
+    setIsSending(true);
+    setSendError("");
+    setSent(false);
+
+    try {
+      const tableParam = new URLSearchParams(window.location.search)
+        .get("tavolo")
+        ?.trim();
+      const response = await fetch("/api/requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          track: {
+            id: selectedSong.id,
+            title: selectedSong.title,
+            artist: selectedSong.artist,
+            cover: selectedSong.cover,
+            spotifyUrl: selectedSong.spotifyUrl ?? "",
+          },
+          dedication: isDedication
+            ? {
+                recipient: recipient.trim(),
+                sender: sender.trim(),
+                message: dedicationMessage.trim(),
+              }
+            : null,
+          table: tableParam ?? "",
+        }),
+      });
+
+      const payload = (await response.json().catch(() => ({}))) as {
+        error?: string;
+      };
+
+      if (!response.ok) {
+        throw new Error(payload.error || "Invio non riuscito.");
+      }
+
+      setSent(true);
+      setRecipient("");
+      setDedicationMessage("");
+      window.setTimeout(() => setSent(false), 3200);
+    } catch (error) {
+      setSendError(
+        error instanceof Error
+          ? error.message
+          : "Invio non riuscito. Riprova tra qualche secondo.",
+      );
+    } finally {
+      setIsSending(false);
+    }
   };
 
   return (
@@ -248,6 +303,22 @@ export default function Prototype() {
                   autoComplete="off"
                 />
               </label>
+              <label htmlFor="dedication-message">
+                <span>MESSAGGIO <small>(facoltativo)</small></span>
+                <textarea
+                  id="dedication-message"
+                  value={dedicationMessage}
+                  onChange={(event) =>
+                    setDedicationMessage(event.target.value.slice(0, 240))
+                  }
+                  placeholder="Scrivi la tua dedica…"
+                  rows={3}
+                  maxLength={240}
+                />
+                <small className="message-count">
+                  {dedicationMessage.length}/240
+                </small>
+              </label>
             </div>
           ) : (
             <p className="dedication-off">
@@ -262,8 +333,14 @@ export default function Prototype() {
           disabled={!canSend}
           onClick={sendRequest}
         >
-          MANDA AL DJ
+          {isSending ? "INVIO IN CORSO…" : "MANDA AL DJ"}
         </button>
+
+        {sendError ? (
+          <p className="send-error" role="alert">
+            {sendError}
+          </p>
+        ) : null}
 
         <p className="request-note">
           Hai scelto <strong>{selectedSong.title}</strong>

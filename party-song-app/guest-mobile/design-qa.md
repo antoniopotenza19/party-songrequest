@@ -46,3 +46,13 @@
 - Test one iPhone Safari and one Android Chrome device before printing QR codes.
 
 final result: passed
+# Verifica dedica e invio reale
+
+- Modulo dedica verificato nel browser con destinatario, mittente facoltativo e
+  messaggio facoltativo fino a 240 caratteri.
+- Il pulsante resta disabilitato finché manca il destinatario quando la dedica
+  è attiva.
+- La richiesta viene inviata a una funzione server, senza esporre la chiave
+  Supabase nel client.
+- Build, controllo runtime, test Spotify, test API richieste e test packaging
+  completati.

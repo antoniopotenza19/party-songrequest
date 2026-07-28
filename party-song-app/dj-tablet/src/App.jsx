@@ -1,147 +1,183 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  CheckCircle,
   ClockCounterClockwise,
   Heart,
   ListNumbers,
   MusicNotes,
   Play,
+  SpinnerGap,
   Trash,
-  UsersThree,
+  User,
 } from "@phosphor-icons/react";
 
-const initialQueue = [
-  {
-    id: "sara",
-    title: "Sarà perché ti amo",
-    artist: "Ricchi e Poveri",
-    cover: "/assets/party/sara-perche-ti-amo.png",
-    table: "Tavolo 7",
-    requestedBy: 6,
-    dedicationTo: "Martina",
-    dedicationFrom: "Antonio",
-    message: "Per i nostri dieci anni insieme",
-    receivedAt: "21:48",
-  },
-  {
-    id: "vivere",
-    title: "Vivere",
-    artist: "Vasco Rossi",
-    cover: "/assets/party/vivere.png",
-    table: "Tavoli 2, 5",
-    requestedBy: 3,
-    dedicationTo: "",
-    dedicationFrom: "",
-    message: "",
-    receivedAt: "21:51",
-  },
-  {
-    id: "lambrusco",
-    title: "Lambrusco e popcorn",
-    artist: "Ligabue",
-    cover: "/assets/party/lambrusco-popcorn.png",
-    table: "Tavolo 4",
-    requestedBy: 1,
-    dedicationTo: "Stefano",
-    dedicationFrom: "Gli amici",
-    message: "Questa è tutta tua",
-    receivedAt: "21:53",
-  },
-  {
-    id: "estate",
-    title: "L'estate sta finendo",
-    artist: "Righeira",
-    cover: "/assets/party/estate-finendo.png",
-    table: "Tavoli 1, 8",
-    requestedBy: 4,
-    dedicationTo: "",
-    dedicationFrom: "",
-    message: "",
-    receivedAt: "21:55",
-  },
-  {
-    id: "sara-bis",
-    title: "Mamma Maria",
-    artist: "Ricchi e Poveri",
-    cover: "/assets/party/sara-perche-ti-amo.png",
-    table: "Tavolo 9",
-    requestedBy: 2,
-    dedicationTo: "La nonna",
-    dedicationFrom: "Tutti i nipoti",
-    message: "",
-    receivedAt: "21:58",
-  },
-];
+const POLL_INTERVAL_MS = 2_000;
+const fallbackCover = "/assets/party/paper-background.png";
 
-const initialPlayed = [
-  {
-    id: "played-1",
-    title: "Maracaibo",
-    artist: "Lu Colombo",
-    cover: "/assets/party/estate-finendo.png",
-    table: "Tavolo 3",
-    requestedBy: 2,
-    playedAt: "21:42",
-  },
-  {
-    id: "played-2",
-    title: "Sinceramente",
-    artist: "Annalisa",
-    cover: "/assets/party/vivere.png",
-    table: "Tavolo 6",
-    requestedBy: 1,
-    playedAt: "21:35",
-  },
-];
+function formatTime(value) {
+  if (!value) return "";
+  return new Intl.DateTimeFormat("it-IT", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Europe/Rome",
+  }).format(new Date(value));
+}
+
+function mapRequest(row) {
+  return {
+    id: row.id,
+    title: row.title,
+    artist: row.artist,
+    cover: row.cover_url || fallbackCover,
+    table: row.table_label || "Invitato",
+    dedicationTo: row.dedication_recipient || "",
+    dedicationFrom: row.dedication_sender || "",
+    message: row.dedication_message || "",
+    receivedAt: formatTime(row.created_at),
+    playedAt: formatTime(row.played_at || row.updated_at),
+    status: row.status,
+  };
+}
+
+async function readJson(response) {
+  return response.json().catch(() => ({}));
+}
 
 export function App() {
-  const [queue, setQueue] = useState(initialQueue);
-  const [played, setPlayed] = useState(initialPlayed);
-  const [selectedId, setSelectedId] = useState(initialQueue[0].id);
+  const [queue, setQueue] = useState([]);
+  const [played, setPlayed] = useState([]);
+  const [selectedId, setSelectedId] = useState("");
   const [view, setView] = useState("queue");
-  const [nowPlayingId, setNowPlayingId] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [syncError, setSyncError] = useState("");
+  const [pendingId, setPendingId] = useState("");
+
+  const syncRequests = useCallback(async ({ silent = false } = {}) => {
+    if (!silent) setIsLoading(true);
+
+    try {
+      const response = await fetch("/api/requests", { cache: "no-store" });
+      const payload = await readJson(response);
+      if (!response.ok) {
+        throw new Error(payload.error || "Impossibile caricare le richieste.");
+      }
+
+      const rows = Array.isArray(payload.requests)
+        ? payload.requests.map(mapRequest)
+        : [];
+      const nextQueue = rows.filter((song) => song.status !== "played");
+      const nextPlayed = rows
+        .filter((song) => song.status === "played")
+        .reverse();
+
+      setQueue(nextQueue);
+      setPlayed(nextPlayed);
+      setSelectedId((current) =>
+        nextQueue.some((song) => song.id === current)
+          ? current
+          : nextQueue[0]?.id ?? "",
+      );
+      setSyncError("");
+    } catch (error) {
+      setSyncError(
+        error instanceof Error
+          ? error.message
+          : "Collegamento alle richieste non disponibile.",
+      );
+    } finally {
+      if (!silent) setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    syncRequests();
+    const intervalId = window.setInterval(
+      () => syncRequests({ silent: true }),
+      POLL_INTERVAL_MS,
+    );
+    return () => window.clearInterval(intervalId);
+  }, [syncRequests]);
 
   const selectedSong = useMemo(
     () => queue.find((song) => song.id === selectedId) ?? queue[0] ?? null,
     [queue, selectedId],
   );
+  const updateStatus = async (song, status) => {
+    setPendingId(song.id);
+    setSyncError("");
 
-  const markAsPlayed = (song) => {
-    const now = new Date();
-    const playedAt = `${String(now.getHours()).padStart(2, "0")}:${String(
-      now.getMinutes(),
-    ).padStart(2, "0")}`;
-    setQueue((current) => current.filter((item) => item.id !== song.id));
-    setPlayed((current) => [{ ...song, playedAt }, ...current]);
-    setNowPlayingId(null);
-    const remaining = queue.filter((item) => item.id !== song.id);
-    setSelectedId(remaining[0]?.id ?? "");
+    try {
+      const response = await fetch("/api/requests", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: song.id, status }),
+      });
+      const payload = await readJson(response);
+      if (!response.ok) {
+        throw new Error(payload.error || "Aggiornamento non riuscito.");
+      }
+      await syncRequests({ silent: true });
+      if (status === "played") setView("queue");
+    } catch (error) {
+      setSyncError(
+        error instanceof Error ? error.message : "Aggiornamento non riuscito.",
+      );
+    } finally {
+      setPendingId("");
+    }
   };
 
-  const playNow = (song) => {
-    setSelectedId(song.id);
-    setNowPlayingId(song.id);
-  };
+  const deletePlayed = async (id) => {
+    setPendingId(id);
+    setSyncError("");
 
-  const deletePlayed = (id) => {
-    setPlayed((current) => current.filter((song) => song.id !== id));
+    try {
+      const response = await fetch(
+        `/api/requests?id=${encodeURIComponent(id)}`,
+        { method: "DELETE" },
+      );
+      const payload = await readJson(response);
+      if (!response.ok) {
+        throw new Error(payload.error || "Eliminazione non riuscita.");
+      }
+      await syncRequests({ silent: true });
+    } catch (error) {
+      setSyncError(
+        error instanceof Error ? error.message : "Eliminazione non riuscita.",
+      );
+    } finally {
+      setPendingId("");
+    }
   };
 
   return (
     <main className="dj-app">
       <header className="topbar">
         <div className="brand">
-          <span className="brand-icon"><MusicNotes size={25} weight="fill" /></span>
+          <span className="brand-icon">
+            <MusicNotes size={25} weight="fill" />
+          </span>
           <div>
             <strong>30 IN PIENA ESTATE</strong>
             <small>Console richieste DJ</small>
           </div>
         </div>
-        <div className="live-status">
+        <div
+          className="live-status"
+          data-connected={!syncError && !isLoading ? "true" : "false"}
+        >
           <span />
-          LIVE
+          {isLoading ? "CONNESSIONE" : syncError ? "OFFLINE" : "LIVE"}
         </div>
       </header>
+
+      {syncError ? (
+        <div className="sync-error" role="alert">
+          <span>{syncError}</span>
+          <button type="button" onClick={() => syncRequests()}>
+            Riprova
+          </button>
+        </div>
+      ) : null}
 
       <section className="dashboard">
         <div className="queue-column">
@@ -179,15 +215,19 @@ export function App() {
 
           {view === "queue" ? (
             <div className="track-list" aria-label="Canzoni in coda">
-              {queue.length ? (
+              {isLoading ? (
+                <div className="empty-queue">
+                  <SpinnerGap className="loading-spinner" size={48} />
+                  <h2>Collegamento alla coda…</h2>
+                </div>
+              ) : queue.length ? (
                 queue.map((song, index) => {
                   const selected = song.id === selectedId;
-                  const playing = song.id === nowPlayingId;
+                  const pending = song.id === pendingId;
                   return (
                     <article
                       className="track-row"
                       data-selected={selected ? "true" : "false"}
-                      data-playing={playing ? "true" : "false"}
                       key={song.id}
                     >
                       <button
@@ -196,30 +236,39 @@ export function App() {
                         onClick={() => setSelectedId(song.id)}
                         aria-pressed={selected}
                       >
-                        <span className="track-index">{playing ? <Play size={17} weight="fill" /> : index + 1}</span>
-                        <img src={song.cover} alt="" draggable={false} />
+                        <span className="track-index">{index + 1}</span>
+                        <img
+                          src={song.cover}
+                          alt=""
+                          draggable={false}
+                          onError={(event) => {
+                            event.currentTarget.src = fallbackCover;
+                          }}
+                        />
                         <span className="track-copy">
                           <strong>{song.title}</strong>
                           <small>{song.artist}</small>
                           <span className="track-meta">
-                            <span><UsersThree size={15} weight="fill" /> {song.requestedBy}</span>
-                            <span>{song.table}</span>
-                            {song.dedicationTo ? <span className="dedication-tag"><Heart size={14} weight="fill" /> Dedica</span> : null}
+                            <span>
+                              <User size={15} weight="fill" /> {song.table}
+                            </span>
+                            {song.dedicationTo ? (
+                              <span className="dedication-tag">
+                                <Heart size={14} weight="fill" /> Dedica
+                              </span>
+                            ) : null}
                           </span>
                         </span>
                       </button>
                       <div className="row-actions">
-                        <button type="button" className="play-now" onClick={() => playNow(song)}>
-                          <Play size={19} weight="fill" />
-                          Metti ora
-                        </button>
                         <button
                           type="button"
-                          className="mark-played"
-                          aria-label={`Segna ${song.title} come già messa`}
-                          onClick={() => markAsPlayed(song)}
+                          className="play-now"
+                          disabled={pending}
+                          onClick={() => updateStatus(song, "played")}
                         >
-                          <CheckCircle size={25} weight="bold" />
+                          <Play size={19} weight="fill" />
+                          Metti ora
                         </button>
                       </div>
                     </article>
@@ -227,26 +276,41 @@ export function App() {
                 })
               ) : (
                 <div className="empty-queue">
-                  <CheckCircle size={48} weight="light" />
-                  <h2>Coda vuota</h2>
-                  <p>Le nuove richieste appariranno qui.</p>
+                  <MusicNotes size={48} weight="light" />
+                  <h2>Nessuna richiesta ancora</h2>
+                  <p>
+                    Le richieste degli invitati appariranno qui automaticamente.
+                  </p>
                 </div>
               )}
             </div>
           ) : (
-            <div className="track-list played-list" aria-label="Canzoni già riprodotte">
+            <div
+              className="track-list played-list"
+              aria-label="Canzoni già riprodotte"
+            >
               {played.length ? (
                 played.map((song) => (
                   <article className="track-row played-row" key={song.id}>
-                    <img src={song.cover} alt="" draggable={false} />
+                    <img
+                      src={song.cover}
+                      alt=""
+                      draggable={false}
+                      onError={(event) => {
+                        event.currentTarget.src = fallbackCover;
+                      }}
+                    />
                     <div className="track-copy">
                       <strong>{song.title}</strong>
                       <small>{song.artist}</small>
-                      <span className="played-time">Riprodotta alle {song.playedAt}</span>
+                      <span className="played-time">
+                        Riprodotta alle {song.playedAt}
+                      </span>
                     </div>
                     <button
                       className="delete-button"
                       type="button"
+                      disabled={pendingId === song.id}
                       onClick={() => deletePlayed(song.id)}
                       aria-label={`Elimina ${song.title} dallo storico`}
                     >
@@ -268,12 +332,19 @@ export function App() {
         <aside className="details-panel" aria-live="polite">
           {selectedSong ? (
             <>
-              <p className="eyebrow">{nowPlayingId === selectedSong.id ? "IN RIPRODUZIONE" : "BRANO SELEZIONATO"}</p>
+              <p className="eyebrow">
+                BRANO SELEZIONATO
+              </p>
               <div className="selected-cover-wrap">
-                <img className="selected-cover" src={selectedSong.cover} alt="" draggable={false} />
-                {nowPlayingId === selectedSong.id ? (
-                  <span className="playing-badge"><Play size={16} weight="fill" /> Adesso</span>
-                ) : null}
+                <img
+                  className="selected-cover"
+                  src={selectedSong.cover}
+                  alt=""
+                  draggable={false}
+                  onError={(event) => {
+                    event.currentTarget.src = fallbackCover;
+                  }}
+                />
               </div>
               <h2>{selectedSong.title}</h2>
               <p className="selected-artist">{selectedSong.artist}</p>
@@ -284,10 +355,6 @@ export function App() {
                   <strong>{selectedSong.table}</strong>
                 </div>
                 <div>
-                  <span>Persone</span>
-                  <strong>{selectedSong.requestedBy}</strong>
-                </div>
-                <div>
                   <span>Arrivata</span>
                   <strong>{selectedSong.receivedAt}</strong>
                 </div>
@@ -295,30 +362,42 @@ export function App() {
 
               {selectedSong.dedicationTo ? (
                 <div className="dedication-card">
-                  <div className="dedication-title"><Heart size={20} weight="fill" /> DEDICA</div>
-                  <p>A <strong>{selectedSong.dedicationTo}</strong></p>
-                  {selectedSong.dedicationFrom ? <p>Da {selectedSong.dedicationFrom}</p> : null}
-                  {selectedSong.message ? <blockquote>“{selectedSong.message}”</blockquote> : null}
+                  <div className="dedication-title">
+                    <Heart size={20} weight="fill" /> DEDICA
+                  </div>
+                  <p>
+                    A <strong>{selectedSong.dedicationTo}</strong>
+                  </p>
+                  {selectedSong.dedicationFrom ? (
+                    <p>Da {selectedSong.dedicationFrom}</p>
+                  ) : null}
+                  {selectedSong.message ? (
+                    <blockquote>“{selectedSong.message}”</blockquote>
+                  ) : null}
                 </div>
               ) : (
-                <div className="no-dedication">Nessuna dedica per questo brano.</div>
+                <div className="no-dedication">
+                  Nessuna dedica per questo brano.
+                </div>
               )}
 
-              <div className="detail-actions">
-                <button type="button" className="primary-action" onClick={() => playNow(selectedSong)}>
+              <div className="detail-actions single-action">
+                <button
+                  type="button"
+                  className="primary-action"
+                  disabled={pendingId === selectedSong.id}
+                  onClick={() => updateStatus(selectedSong, "played")}
+                >
                   <Play size={22} weight="fill" />
                   Metti adesso
-                </button>
-                <button type="button" className="secondary-action" onClick={() => markAsPlayed(selectedSong)}>
-                  <CheckCircle size={22} weight="bold" />
-                  Già messa
                 </button>
               </div>
             </>
           ) : (
             <div className="empty-detail">
               <MusicNotes size={54} weight="light" />
-              <h2>Seleziona un brano</h2>
+              <h2>La coda è pronta</h2>
+              <p>Seleziona una richiesta quando arriva.</p>
             </div>
           )}
         </aside>

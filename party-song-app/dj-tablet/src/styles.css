@@ -231,11 +231,6 @@ body {
   box-shadow: inset 3px 0 0 var(--green);
 }
 
-.track-row[data-playing="true"] {
-  border-color: #326840;
-  background: #17241b;
-}
-
 .track-main {
   display: grid;
   min-width: 0;
@@ -254,10 +249,6 @@ body {
   color: var(--muted);
   font-size: 14px;
   text-align: center;
-}
-
-.track-row[data-playing="true"] .track-index {
-  color: var(--green);
 }
 
 .track-main img,
@@ -318,7 +309,6 @@ body {
 }
 
 .play-now,
-.mark-played,
 .delete-button {
   display: inline-flex;
   align-items: center;
@@ -336,19 +326,6 @@ body {
   color: #09110b;
   font-size: 12px;
   font-weight: 700;
-}
-
-.mark-played {
-  width: 42px;
-  height: 42px;
-  border-radius: 9px;
-  background: #2c322e;
-  color: #b8c0ba;
-}
-
-.mark-played:hover {
-  background: #39413b;
-  color: white;
 }
 
 .played-row {
@@ -416,21 +393,6 @@ body {
   border-radius: 14px;
   object-fit: cover;
   box-shadow: 0 22px 48px rgba(0, 0, 0, 0.34);
-}
-
-.playing-badge {
-  display: inline-flex;
-  position: absolute;
-  right: 13px;
-  bottom: 13px;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 11px;
-  border-radius: 999px;
-  background: var(--green);
-  color: #09110b;
-  font-size: 12px;
-  font-weight: 700;
 }
 
 .details-panel > h2 {
@@ -526,6 +488,10 @@ body {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 9px;
+}
+
+.detail-actions.single-action {
+  grid-template-columns: 1fr;
 }
 
 .detail-actions button {

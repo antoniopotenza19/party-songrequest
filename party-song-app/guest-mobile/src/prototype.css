@@ -349,7 +349,8 @@ body {
   letter-spacing: 0;
 }
 
-.dedication-fields input {
+.dedication-fields input,
+.dedication-fields textarea {
   height: 44px;
   padding: 0 11px;
   border: 2px solid var(--line);
@@ -360,7 +361,23 @@ body {
   font: 24px/1 "Patrick Hand", system-ui, sans-serif;
 }
 
+.dedication-fields textarea {
+  min-height: 88px;
+  height: auto;
+  padding-block: 9px;
+  line-height: 1.05;
+  resize: vertical;
+}
+
+.dedication-fields .message-count {
+  justify-self: end;
+  margin-top: -1px;
+  color: rgba(38, 60, 42, 0.66);
+  font-size: 14px;
+}
+
 .dedication-fields input:focus,
+.dedication-fields textarea:focus,
 .search-box:focus-within {
   border-color: var(--blue);
   box-shadow: 0 0 0 3px rgba(22, 91, 154, 0.13);
@@ -393,6 +410,14 @@ body {
 .send-button:disabled {
   opacity: 0.48;
   cursor: not-allowed;
+}
+
+.send-error {
+  margin: 13px 0 -2px;
+  color: var(--red);
+  font-size: 18px;
+  line-height: 1.15;
+  text-align: center;
 }
 
 .request-note {

@@ -44,3 +44,10 @@ No actionable P0, P1, or P2 issues remain.
 ## Final result
 
 final result: passed
+# Verifica coda reale
+
+- Coda iniziale verificata vuota nel browser.
+- Stato vuoto e dettaglio leggibili a 1365 x 936.
+- Rimane un solo comando operativo: **Metti ora**.
+- **Metti ora** porta direttamente la richiesta nello storico **Già messe**.
+- Build, test API richieste e test packaging completati.
