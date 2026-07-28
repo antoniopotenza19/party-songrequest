@@ -1,16 +1,16 @@
-# 30 in piena estate: song request prototypes
+# 30 in piena estate: song requests
 
-This package contains two coordinated interactive prototypes:
+This package contains two coordinated applications:
 
 - `guest-mobile`: mobile request experience opened from table QR codes.
 - `dj-tablet`: tablet dashboard for selecting, playing, archiving, and deleting requests.
 
 ## Guest flow
 
-Guests search an approved song list, select a track, optionally enable a dedication, enter the recipient and sender, and submit the request.
+Guests open the mobile app from a table QR code, search Spotify, select a track, optionally add a dedication with recipient, sender, and message, then submit the request.
 
 ## DJ flow
 
-The DJ can select any item in the queue regardless of order, start it immediately, mark it as played, switch to the played-history view, and delete completed requests.
+The DJ console polls the shared Supabase queue, shows incoming requests automatically, can play any request immediately with `Metti ora`, and keeps completed songs in `Gia messe`.
 
-Both prototypes use the same sample songs and generated album artwork. They are frontend-only and use local React state, so no backend, authentication, or real-time synchronization is included yet.
+Both apps use server-side API routes for Spotify and Supabase credentials. Secrets must stay in Vercel Environment Variables, never in client code or committed files.

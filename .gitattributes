@@ -1,0 +1,8 @@
+party-song-app/guest-mobile/scripts/*.mjs text eol=lf
+party-song-app/guest-mobile/src/App.tsx text eol=lf
+party-song-app/guest-mobile/src/main.tsx text eol=lf
+party-song-app/guest-mobile/src/styles.css text eol=lf
+party-song-app/guest-mobile/src/mobile/** text eol=lf
+party-song-app/guest-mobile/public/assets/android/navigation-bar.svg text eol=lf
+party-song-app/guest-mobile/public/assets/status/*.svg text eol=lf
+party-song-app/guest-mobile/worker/index.js text eol=lf
