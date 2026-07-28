@@ -6,6 +6,8 @@
 - Preserve the selected visual direction: warm ivory paper, brick-red headings, dark olive body copy, mustard and Mediterranean-blue accents, hand-drawn Italian summer decoration, Bebas Neue display type, and Patrick Hand UI copy.
 - Keep the guest task short: choose from an approved list, optionally dedicate the song, enter the recipient and sender, then send it to the DJ.
 - The matching DJ tablet dashboard is a separate sibling prototype under `../dj-tablet`; it intentionally uses a dark, high-contrast queue interface optimized for fast use during the party.
+- The production guest deployment must render as a standalone responsive page. Do not show a simulated iPhone, Android bezel, device picker, custom cursor, or simulated keyboard to real guests.
+- Search uses the Spotify catalog through a server-only Vercel function. Album covers come from Spotify when available and fall back to an existing local party asset when unavailable. Never expose the Spotify Client Secret through a `VITE_` environment variable or client bundle.
 
 ## Prototype Instructions
 
